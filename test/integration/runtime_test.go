@@ -189,6 +189,9 @@ func TestSessionCreateAndResume(t *testing.T) {
 
 func TestGlobAndGrepTools(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("ignored/\nignored-file.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc main() {}"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -196,6 +199,15 @@ func TestGlobAndGrepTools(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test project"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "ignored"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored-file.txt"), []byte("skip me"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored", "nested.go"), []byte("package ignored"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -212,6 +224,20 @@ func TestGlobAndGrepTools(t *testing.T) {
 	if strings.Contains(globResult.Output, "README.md") {
 		t.Fatalf("README.md should not match *.go: %q", globResult.Output)
 	}
+	if strings.Contains(globResult.Output, "ignored") {
+		t.Fatalf("ignored paths should be skipped: %q", globResult.Output)
+	}
+
+	broadResult, err := coretools.GlobTool{}.Run(context.Background(), tool.Call{
+		ToolID:    "core/glob",
+		Arguments: map[string]any{"pattern": "*", "root": dir},
+	})
+	if err != nil {
+		t.Fatalf("broad glob: %v", err)
+	}
+	if strings.Contains(broadResult.Output, "ignored") {
+		t.Fatalf("broad glob should respect ignore rules: %q", broadResult.Output)
+	}
 
 	grepResult, err := coretools.GrepTool{}.Run(context.Background(), tool.Call{
 		ToolID:    "core/grep",
@@ -222,6 +248,69 @@ func TestGlobAndGrepTools(t *testing.T) {
 	}
 	if !strings.Contains(grepResult.Output, "util.go") {
 		t.Fatalf("unexpected grep output: %q", grepResult.Output)
+	}
+}
+
+func TestWriteEditAndBashTools(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "note.txt")
+
+	writeResult, err := coretools.WriteTool{}.Run(context.Background(), tool.Call{
+		ToolID:    "core/write",
+		Arguments: map[string]any{"path": target, "content": "hello world"},
+	})
+	if err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if writeResult.Output != "wrote file" {
+		t.Fatalf("unexpected write output: %q", writeResult.Output)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+	if string(data) != "hello world" {
+		t.Fatalf("unexpected file content after write: %q", string(data))
+	}
+
+	editResult, err := coretools.EditTool{}.Run(context.Background(), tool.Call{
+		ToolID:    "core/edit",
+		Arguments: map[string]any{"path": target, "old": "world", "new": "agent"},
+	})
+	if err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	if editResult.Output != "edited file" {
+		t.Fatalf("unexpected edit output: %q", editResult.Output)
+	}
+	data, err = os.ReadFile(target)
+	if err != nil {
+		t.Fatalf("read edited file: %v", err)
+	}
+	if string(data) != "hello agent" {
+		t.Fatalf("unexpected file content after edit: %q", string(data))
+	}
+
+	readResult, err := coretools.ReadTool{}.Run(context.Background(), tool.Call{
+		ToolID:    "core/read",
+		Arguments: map[string]any{"path": target},
+	})
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if readResult.Output != "hello agent" {
+		t.Fatalf("unexpected read output: %q", readResult.Output)
+	}
+
+	bashResult, err := coretools.BashTool{}.Run(context.Background(), tool.Call{
+		ToolID:    "core/bash",
+		Arguments: map[string]any{"command": "printf 'bash ok'"},
+	})
+	if err != nil {
+		t.Fatalf("bash: %v", err)
+	}
+	if strings.TrimSpace(bashResult.Output) != "bash ok" {
+		t.Fatalf("unexpected bash output: %q", bashResult.Output)
 	}
 }
 

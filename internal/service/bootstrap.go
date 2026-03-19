@@ -146,13 +146,15 @@ func (a App) ResolveTools(enabled []string) ([]tool.Tool, error) {
 func (a App) BuildPolicy(workspaceRef workspace.Workspace, manifest profile.Manifest, profilePath string) policy.Engine {
 	overrides, err := internalpolicy.LoadToolOverrides(profilePath, manifest.Spec.Policy.Overlays)
 	if err != nil {
-		overrides = map[string]policy.DecisionKind{}
+		overrides = internalpolicy.OverlayDecisions{Tools: map[string]policy.DecisionKind{}}
 	}
 	return internalpolicy.Engine{
 		Workspace:      workspaceRef,
 		ReadOnly:       internalpolicy.IsReadOnly(manifest.Spec.Workspace.WriteScope, manifest.Spec.Tools.Enabled),
 		SensitiveTools: a.sensitiveToolsFor(manifest.Spec.Tools.Enabled),
-		ToolOverrides:  overrides,
+		ToolOverrides:  overrides.Tools,
+		ShellOverride:  overrides.Shell,
+		NetOverride:    overrides.Network,
 	}
 }
 

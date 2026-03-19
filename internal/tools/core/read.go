@@ -23,7 +23,7 @@ func (ReadTool) Run(_ context.Context, call tool.Call) (tool.Result, error) {
 	if err != nil {
 		return tool.Result{}, err
 	}
-	return tool.Result{ToolID: call.ToolID, Output: string(data)}, nil
+	return tool.Result{ToolID: call.ToolID, Output: string(data), Data: map[string]any{"path": path, "bytes": len(data)}}, nil
 }
 
 func argString(args map[string]any, key string) (string, error) {

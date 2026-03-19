@@ -1,9 +1,9 @@
 apiVersion: agent/v1
 kind: Profile
 metadata:
-  name: coding
+  name: coding-no-approval
   version: 0.1.0
-  description: Coding-oriented example profile for local repositories
+  description: Coding profile that explicitly allows shell without approval via policy override
 spec:
   instructions:
     system:
@@ -20,9 +20,8 @@ spec:
       - core/edit
       - core/bash
   approval:
-    mode: on-request
-    requireFor:
-      - core/bash
+    mode: never
+    requireFor: []
   workspace:
     required: true
     writeScope: workspace

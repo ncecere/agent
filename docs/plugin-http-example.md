@@ -75,6 +75,7 @@ Note:
 - `email/send` is treated as a sensitive plugin action
 - the policy layer now requires approval for it even when it is available in the profile
 - use `--approval always` only for controlled testing
+- shell and network decisions can also be overridden explicitly with profile policy overlays when you really want non-interactive automation
 
 If you want to test an explicit override, use `./_testing/profiles/email-openai-no-approval/profile.yaml`.
 That profile demonstrates a policy overlay that allows `email/send` without an approval prompt.

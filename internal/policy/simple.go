@@ -16,6 +16,8 @@ type Engine struct {
 	AllowNet       bool
 	SensitiveTools map[string]policy.RiskLevel
 	ToolOverrides  map[string]policy.DecisionKind
+	ShellOverride  *policy.DecisionKind
+	NetOverride    *policy.DecisionKind
 }
 
 func (e Engine) Check(_ context.Context, req policy.CheckRequest) (policy.Decision, error) {
@@ -28,8 +30,14 @@ func (e Engine) Check(_ context.Context, req policy.CheckRequest) (policy.Decisi
 		}
 		return e.checkWorkspace(req.Path, policy.DecisionAllow, "write allowed in workspace")
 	case policy.ActionShell:
+		if e.ShellOverride != nil {
+			return policy.Decision{Kind: *e.ShellOverride, Reason: "shell matched policy override", Risk: policy.RiskHigh}, nil
+		}
 		return policy.Decision{Kind: policy.DecisionRequireApproval, Reason: "shell commands require approval", Risk: policy.RiskHigh}, nil
 	case policy.ActionNet:
+		if e.NetOverride != nil {
+			return policy.Decision{Kind: *e.NetOverride, Reason: "network matched policy override", Risk: req.Risk}, nil
+		}
 		if !e.AllowNet {
 			return policy.Decision{Kind: policy.DecisionDeny, Reason: "network access is disabled", Risk: policy.RiskHigh}, nil
 		}

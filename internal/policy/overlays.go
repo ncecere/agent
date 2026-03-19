@@ -20,12 +20,18 @@ type overlayRule struct {
 	Decision string `yaml:"decision"`
 }
 
-func LoadToolOverrides(profilePath string, overlays []string) (map[string]policy.DecisionKind, error) {
+type OverlayDecisions struct {
+	Tools   map[string]policy.DecisionKind
+	Shell   *policy.DecisionKind
+	Network *policy.DecisionKind
+}
+
+func LoadToolOverrides(profilePath string, overlays []string) (OverlayDecisions, error) {
 	if len(overlays) == 0 {
-		return map[string]policy.DecisionKind{}, nil
+		return OverlayDecisions{Tools: map[string]policy.DecisionKind{}}, nil
 	}
 	baseDir := filepath.Dir(profilePath)
-	result := make(map[string]policy.DecisionKind)
+	result := OverlayDecisions{Tools: make(map[string]policy.DecisionKind)}
 	for _, overlay := range overlays {
 		path := overlay
 		if !filepath.IsAbs(path) {
@@ -33,17 +39,32 @@ func LoadToolOverrides(profilePath string, overlays []string) (map[string]policy
 		}
 		parsed, err := loaderutil.LoadYAML[overlayFile](path)
 		if err != nil {
-			return nil, err
+			return OverlayDecisions{}, err
 		}
 		for _, rule := range parsed.Rules {
-			if rule.Action != string(policy.ActionTool) || rule.Tool == "" {
+			if rule.Decision == "" {
+				continue
+			}
+			switch rule.Action {
+			case string(policy.ActionTool), string(policy.ActionShell), string(policy.ActionNet):
+			default:
 				continue
 			}
 			decision, err := parseDecision(rule.Decision)
 			if err != nil {
-				return nil, fmt.Errorf("overlay rule %s: %w", rule.ID, err)
+				return OverlayDecisions{}, fmt.Errorf("overlay rule %s: %w", rule.ID, err)
 			}
-			result[rule.Tool] = decision
+			switch rule.Action {
+			case string(policy.ActionTool):
+				if rule.Tool == "" {
+					continue
+				}
+				result.Tools[rule.Tool] = decision
+			case string(policy.ActionShell):
+				result.Shell = &decision
+			case string(policy.ActionNet):
+				result.Network = &decision
+			}
 		}
 	}
 	return result, nil

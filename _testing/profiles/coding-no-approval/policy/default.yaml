@@ -3,6 +3,6 @@ rules:
   - id: workspace-write
     action: write
     scope: workspace
-  - id: bash-approval
+  - id: allow-shell
     action: shell
-    #decision: require_approval
+    decision: allow

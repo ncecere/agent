@@ -792,7 +792,7 @@ func (s streamSink) Publish(_ context.Context, event events.Event) error {
 		_, err := fmt.Fprintf(s.Writer, "\n[tool request] %s\n", event.Message)
 		return err
 	case events.TypeToolFinished:
-		_, err := fmt.Fprintf(s.Writer, "[tool finished] %s\n", event.Message)
+		_, err := fmt.Fprintf(s.Writer, "[tool finished] %s\n", summarizeToolEvent(event))
 		return err
 	case events.TypePolicyDecision:
 		_, err := fmt.Fprintf(s.Writer, "[policy] %s\n", event.Message)
@@ -818,6 +818,122 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func summarizeToolEvent(event events.Event) string {
+	result, ok := event.Data.(tool.Result)
+	if !ok {
+		return compactText(event.Message, 200)
+	}
+	switch result.ToolID {
+	case "core/glob":
+		count := extractCount(result.Data)
+		preview := extractStringSlice(result.Data, "matches")
+		return summarizeList("matches", count, preview)
+	case "core/grep":
+		count := extractCount(result.Data)
+		preview := extractMatchPreview(result.Output, 3)
+		if count > 0 {
+			return fmt.Sprintf("%d match(es)%s", count, preview)
+		}
+		return "0 matches"
+	case "core/read":
+		return fmt.Sprintf("read %d bytes", len(result.Output))
+	case "core/write", "core/edit":
+		if path, _ := result.Data["path"].(string); path != "" {
+			return fmt.Sprintf("%s (%s)", result.Output, path)
+		}
+		return result.Output
+	case "core/bash":
+		return compactText(strings.TrimSpace(result.Output), 160)
+	default:
+		return compactText(strings.TrimSpace(result.Output), 200)
+	}
+}
+
+func extractCount(data map[string]any) int {
+	if data == nil {
+		return 0
+	}
+	switch v := data["count"].(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	default:
+		return 0
+	}
+}
+
+func extractStringSlice(data map[string]any, key string) []string {
+	if data == nil {
+		return nil
+	}
+	raw, ok := data[key]
+	if !ok {
+		return nil
+	}
+	items, ok := raw.([]string)
+	if ok {
+		return items
+	}
+	anyItems, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(anyItems))
+	for _, item := range anyItems {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func summarizeList(label string, count int, items []string) string {
+	if count == 0 || len(items) == 0 {
+		return fmt.Sprintf("0 %s", label)
+	}
+	maxPreview := 3
+	if len(items) < maxPreview {
+		maxPreview = len(items)
+	}
+	preview := strings.Join(items[:maxPreview], ", ")
+	if count > maxPreview {
+		return fmt.Sprintf("%d %s: %s, ...", count, label, preview)
+	}
+	return fmt.Sprintf("%d %s: %s", count, label, preview)
+}
+
+func extractMatchPreview(output string, maxLines int) string {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if strings.TrimSpace(line) != "" {
+			filtered = append(filtered, compactText(line, 80))
+		}
+		if len(filtered) >= maxLines {
+			break
+		}
+	}
+	if len(filtered) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(filtered, " | ")
+}
+
+func compactText(text string, max int) string {
+	text = strings.Join(strings.Fields(text), " ")
+	if text == "" {
+		return "ok"
+	}
+	if len(text) <= max {
+		return text
+	}
+	if max < 4 {
+		return text[:max]
+	}
+	return text[:max-3] + "..."
 }
 
 func loadSystemInstructions(profilePath string, refs []string) string {

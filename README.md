@@ -89,6 +89,11 @@ Before tagging a `v0.1` release, verify:
 - one plugin-backed tool works end to end
 - sessions can be created, listed, resumed, and exported
 
+Additional release docs:
+
+- `docs/release-checklist-v0.1.md`
+- `CHANGELOG.md`
+
 ## Notes
 
 - The framework is currently an MCP client, not an MCP server.

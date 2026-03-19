@@ -49,6 +49,7 @@ func (GrepTool) Run(_ context.Context, call tool.Call) (tool.Result, error) {
 	if fp, ok := call.Arguments["filePattern"].(string); ok && fp != "" {
 		filePattern = fp
 	}
+	matcher := loadIgnoreMatcher(searchPath)
 	maxResults := 50
 	if mr, ok := call.Arguments["maxResults"].(float64); ok && mr > 0 {
 		maxResults = int(mr)
@@ -61,7 +62,16 @@ func (GrepTool) Run(_ context.Context, call tool.Call) (tool.Result, error) {
 	var matches []match
 	var outputLines []string
 	err = filepath.WalkDir(searchPath, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil || d.IsDir() {
+		if walkErr != nil {
+			return nil
+		}
+		if path != searchPath && matcher.shouldIgnore(path, d.IsDir()) {
+			if d.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
 			return nil
 		}
 		if len(matches) >= maxResults {
