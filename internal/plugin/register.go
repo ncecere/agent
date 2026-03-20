@@ -48,20 +48,21 @@ func RegisterDiscovered(ctx context.Context, loader Loader, regs Registries) err
 		if err := ValidateConfig(item.Manifest, regs.PluginConfigs[item.Manifest.Metadata.Name]); err != nil {
 			return err
 		}
-		if err := registerOne(item, regs); err != nil {
+		if err := registerOne(ctx, item, regs); err != nil {
 			return fmt.Errorf("register plugin %s: %w", item.Manifest.Metadata.Name, err)
 		}
 	}
 	return nil
 }
 
-func registerOne(item Discovered, regs Registries) error {
+func registerOne(ctx context.Context, item Discovered, regs Registries) error {
 	if regs.Plugins != nil {
 		if err := regs.Plugins.Register(item.Manifest); err != nil {
 			return err
 		}
 	}
 	baseDir := filepath.Dir(item.Reference.Path)
+	registeredTool := false
 	for _, contribution := range item.Manifest.Spec.Contributes.Tools {
 		if regs.Tools == nil {
 			continue
@@ -85,6 +86,24 @@ func registerOne(item Discovered, regs Registries) error {
 		}
 		if err := regs.Tools.Register(DescriptorTool{PluginName: item.Manifest.Metadata.Name, Descriptor: descriptor, Runtime: item.Manifest.Spec.Runtime, Config: regs.PluginConfigs[item.Manifest.Metadata.Name], HostCaps: regs.HostCapabilities, MCPManager: regs.MCPManager, Manifest: item.Manifest}); err != nil {
 			return err
+		}
+		registeredTool = true
+	}
+	if regs.Tools != nil && item.Manifest.Spec.Runtime.Type == plg.RuntimeMCP && !registeredTool {
+		if regs.MCPManager == nil {
+			return fmt.Errorf("mcp plugin %s: mcp manager not configured", item.Manifest.Metadata.Name)
+		}
+		tools, err := regs.MCPManager.Tools(ctx, item.Manifest, regs.PluginConfigs[item.Manifest.Metadata.Name])
+		if err != nil {
+			return err
+		}
+		for _, discoveredTool := range tools {
+			if _, exists := regs.Tools.Get(discoveredTool.Definition().ID); exists {
+				continue
+			}
+			if err := regs.Tools.Register(discoveredTool); err != nil {
+				return err
+			}
 		}
 	}
 	for _, contribution := range item.Manifest.Spec.Contributes.Prompts {
