@@ -60,6 +60,16 @@ func (l Loader) Discover(context.Context) ([]Discovered, error) {
 
 func (l Loader) Load(ctx context.Context, ref string) (pf.Manifest, string, error) {
 	if _, err := os.Stat(ref); err == nil {
+		if info, statErr := os.Stat(ref); statErr == nil && info.IsDir() {
+			for _, candidate := range []string{"profile.yaml", "profile.yml"} {
+				manifestPath := filepath.Join(ref, candidate)
+				if _, candidateErr := os.Stat(manifestPath); candidateErr == nil {
+					manifest, loadErr := loaderutil.LoadYAML[pf.Manifest](manifestPath)
+					return manifest, manifestPath, loadErr
+				}
+			}
+			return pf.Manifest{}, "", fs.ErrNotExist
+		}
 		manifest, err := loaderutil.LoadYAML[pf.Manifest](ref)
 		return manifest, ref, err
 	}

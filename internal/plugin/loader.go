@@ -96,6 +96,16 @@ func (l Loader) Discover(context.Context) ([]Discovered, error) {
 
 func (l Loader) Load(ctx context.Context, ref string) (plg.Manifest, string, error) {
 	if _, err := os.Stat(ref); err == nil {
+		if info, statErr := os.Stat(ref); statErr == nil && info.IsDir() {
+			for _, candidate := range []string{"plugin.yaml", "plugin.yml"} {
+				manifestPath := filepath.Join(ref, candidate)
+				if _, candidateErr := os.Stat(manifestPath); candidateErr == nil {
+					manifest, loadErr := loaderutil.LoadYAML[plg.Manifest](manifestPath)
+					return manifest, manifestPath, loadErr
+				}
+			}
+			return plg.Manifest{}, "", fs.ErrNotExist
+		}
 		manifest, err := loaderutil.LoadYAML[plg.Manifest](ref)
 		return manifest, ref, err
 	}

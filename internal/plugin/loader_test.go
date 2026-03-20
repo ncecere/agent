@@ -37,3 +37,26 @@ func TestLoaderPrefersEarlierRootsForDuplicatePluginNames(t *testing.T) {
 		t.Fatalf("expected earlier root to win, got version %s", discovered[0].Manifest.Metadata.Version)
 	}
 }
+
+func TestLoaderLoadAcceptsPluginDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	pluginDir := filepath.Join(tempDir, "example")
+	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "apiVersion: agent/v1\nkind: Plugin\nmetadata:\n  name: example\n  version: 1.0.0\n  description: example\nspec:\n  category: asset\n  runtime:\n    type: asset\n  contributes:\n    tools: []\n    prompts: []\n    profileTemplates: []\n    policies: []\n  configSchema:\n    type: object\n    properties: {}\n    required: []\n  permissions: {}\n  requires:\n    framework: \">=0.1.0\"\n    plugins: []\n"
+	if err := os.WriteFile(filepath.Join(pluginDir, "plugin.yaml"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loader := Loader{}
+	loaded, path, err := loader.Load(context.Background(), pluginDir)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if loaded.Metadata.Name != "example" {
+		t.Fatalf("expected example plugin, got %s", loaded.Metadata.Name)
+	}
+	if path != filepath.Join(pluginDir, "plugin.yaml") {
+		t.Fatalf("expected plugin.yaml path, got %s", path)
+	}
+}

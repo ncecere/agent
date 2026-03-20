@@ -27,6 +27,7 @@ Use this checklist before tagging the first `v0.1` release.
 ## Plugin validation
 
 - [ ] HTTP plugin runtime works
+- [ ] command plugin runtime works
 - [ ] host plugin runtime works (`spawn-sub-agent`)
 - [ ] MCP client bridge works against at least one MCP server
 - [ ] sensitive plugin actions require approval by default
@@ -36,6 +37,11 @@ Use this checklist before tagging the first `v0.1` release.
 
 - [ ] `README.md` matches the current repo structure
 - [ ] `docs/plugins.md` matches current CLI behavior
+- [ ] `docs/building-plugins.md` matches current runtime behavior
+- [ ] `docs/plugin-runtime-choices.md` matches the implemented runtimes
+- [ ] `docs/examples/build-a-web-research-plugin.md` still works as written
+- [ ] `docs/examples/build-a-send-email-plugin.md` still works as written
+- [ ] `docs/plugin-author-checklist.md` matches the current plugin model
 - [ ] `docs/plugin-http-example.md` still works as written
 - [ ] `docs/mcp-bridge.md` matches the implemented bridge model
 
